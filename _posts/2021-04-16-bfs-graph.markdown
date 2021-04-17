@@ -1,0 +1,122 @@
+---
+layout: post
+title:  "A BFS Problem to Calculate Valid States"
+---
+
+[Codeforces Round #216 (Div. 2) D. Valera and Fools](https://codeforces.com/problemset/problem/369/D)
+
+- We could easily see that the although n is in the range of [1, 3000], the number of states is far less than $$ O(2^n) $$, and is $$ O(n^2) $$ in fact
+    - This is because we always shoot the lower two candidates, and the two pointers move to the right accordingly
+- There is another constraint which is the number of bullets available k, which is the number of state transfer
+- Now this becomes a graph problem. We have a graph of $$ n^2 $$ nodes, how many nodes are reachable within k distance. And obviously this can be solved with BFS. Next we need to figure out the conectivity of the graph.
+- Suppose we are on state $$ [i, j] $$, we could possibly reach to $$ [i + 1, i] $$ if $$ j $$ die and $$ i $$ live, $$ [i + 1, j] $$ if $$ i $$ die and $$ j $$ live,$$ [i + 2, i + 1] $$ if $$ i $$ and $$ j $$ both die
+- We already know that the probability $$ i $$ die is p[j]. And the probability that $$ j $$ die is $$ f[i] = 1 - \prod_{j = i}^{n - 1}(1 - p[j]) $$. Then when doing the state tranfer, we just need to check if the probability equal to 0 or 1
+
+<br />
+
+
+- ***However***, this gives WA. The probabilty can have thousands of terms and under double precision, $$ f[i] $$ can easily be zero even if it's not. ***be extra careful about floating point number comparison.***
+    - Here, we just need to record whether $$ p[i] $$ is 0, or 100, or other. Therefore, integer type is sufficient.
+- Another thing to be careful is the state where we have only one element left, or we have no element left. These states have 0 outdegree, therefore don't need to be pushed into the queue. But we still need to count them for the final result.
+
+```c++
+#include <bits/stdc++.h>
+#define ll long long
+
+using namespace std;
+
+int dp[3010][3010];
+
+int main()
+{
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+    int n, k;
+    cin >> n >> k;
+    vector<int> p(n + 2, 0);
+    for(int i = 0; i < n; i++)
+    {
+        cin >> p[i];
+        if(p[i] == 100)
+            p[i] = 2;
+        else if(p[i] > 0)
+            p[i] = 1;
+    }
+
+    if(n == 1)
+    {
+        cout << 1 << endl;
+        return 0;
+    }
+    
+    vector<int> f(n + 2, 0);
+    bool must_die = false, must_live = true;
+    for(int i = n - 1; i >= 0; i--)
+    {
+        if(p[i] == 2)
+        {
+            must_die = true;
+            must_live = false;
+        }
+        else if(p[i] > 0)
+        {
+            must_live = false;
+        }
+        if(must_live)
+            f[i] = 0;
+        else if(must_die)
+            f[i] = 2;
+        else
+            f[i] = 1;
+    }
+
+    memset(dp, 0, sizeof(dp));
+    dp[1][0] = 1;
+    queue<pair<int, int>> q;
+    q.push({1, 0});
+
+    while(!q.empty() && k-- > 0)
+    {
+        int sz = q.size();
+        while(sz--)
+        {
+            auto [i, j] = q.front();
+            q.pop();
+
+            if(f[i] != 0 && p[j] != 2 && dp[i + 1][i] == 0)
+            {
+                dp[i + 1][i] = 1;
+                if(i + 1 < n)
+                    q.push({i + 1, i});
+            }
+
+            if(p[j] != 0 && f[i] != 2 && dp[i + 1][j] == 0)
+            {
+                dp[i + 1][j] = 1;
+                if(i + 1 < n)
+                    q.push({i + 1, j});
+            }
+
+            if(f[i] != 0 && p[j] != 0 && dp[i + 2][i + 1] == 0)
+            {
+                dp[i + 2][i + 1] = 1;
+                if(i + 2 < n)
+                    q.push({i + 2, i + 1});
+            }
+        }
+    }
+
+    int ret = 0;
+    for(int i = 0; i <= n + 1; i++)
+    {
+        for(int j = 0; j <= n + 1; j++)
+        {
+            if(dp[i][j])
+                ret++;
+        }
+    }
+    cout << ret << endl;
+
+    return 0;
+}
+```  
